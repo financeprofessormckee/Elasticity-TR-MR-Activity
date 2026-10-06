@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Elasticity, TR, MR: draw a demand curve and watch its elasticity, total revenue and marginal revenue respond.">
+  <title>Elasticity, TR, MR — Friedman Economic Games</title>
+  <link rel="stylesheet" href="assets/cob-brand.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="cob-brand">
+    <div class="cob-brand__inner">
+      <img class="cob-brand__seal" src="assets/cob-seal.png" srcset="assets/cob-seal@2x.png 2x" width="56" height="56" alt="West Texas A&amp;M University · Paul and Virginia Engler College of Business seal">
+      <div class="cob-brand__wordmark">
+        <span class="cob-brand__university">West Texas A&amp;M University</span>
+        <span class="cob-brand__college">Paul and Virginia Engler College of Business</span>
+      </div>
+    </div>
+    <div class="cob-brand__rule" aria-hidden="true"></div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <p class="eyebrow">Friedman Economic Games · Proposal 6</p>
+    <h1>Elasticity, TR, MR</h1>
+    <p class="intro">Draw a demand curve, then reshape it and watch its elasticity, total revenue and marginal revenue change with it. Where total revenue is highest, elasticity is exactly one and marginal revenue is zero. See it happen on any curve you like.</p>
+
+    <details class="howto" open>
+      <summary>How to use it</summary>
+      <ol>
+        <li>Start from a preset, or draw your own demand curve: the <strong>Line</strong> tool takes two clicks, and the <strong>Sketch</strong> tool follows your pointer with smoothing. You can also type the points into the table below the graph.</li>
+        <li>With the <strong>Reshape</strong> tool, drag the square handles, or Tab to one and use the arrow keys. Clicking elsewhere on the graph picks a quantity.</li>
+        <li>Turn on <strong>Elasticity</strong>, <strong>Total revenue</strong> and <strong>Marginal revenue</strong> to see them drawn from your curve. MR shares the price axis. Elasticity and TR use the right-hand axis; when both are on, the Right axis button switches between them.</li>
+        <li>Choose a quantity and turn on <strong>Show tangent calculation</strong> to compute elasticity from the two tangent segments and compare it with the formula.</li>
+      </ol>
+    </details>
+
+    <div class="play">
+      <section class="panel panel--graph" aria-labelledby="graph-heading">
+        <h2 id="graph-heading">Demand curve</h2>
+
+        <fieldset class="tools">
+          <legend>Tool</legend>
+          <label class="choice"><input type="radio" name="tool" value="reshape" checked> Reshape / pick</label>
+          <label class="choice"><input type="radio" name="tool" value="line"> Line (two clicks)</label>
+          <label class="choice"><input type="radio" name="tool" value="sketch"> Sketch (drag)</label>
+        </fieldset>
+
+        <div class="toggles" role="group" aria-label="Curves to show">
+          <button type="button" class="toggle" id="show-e" aria-pressed="false"><span class="swatch swatch--e" aria-hidden="true"></span> Elasticity</button>
+          <button type="button" class="toggle" id="show-tr" aria-pressed="false"><span class="swatch swatch--tr" aria-hidden="true"></span> Total revenue</button>
+          <button type="button" class="toggle" id="show-mr" aria-pressed="false"><span class="swatch swatch--mr" aria-hidden="true"></span> Marginal revenue</button>
+          <button type="button" class="btn btn--quiet btn--small" id="right-axis" hidden></button>
+        </div>
+
+        <svg id="graph" viewBox="0 0 416 346" role="group" aria-labelledby="graph-title" aria-describedby="graph-desc">
+          <title id="graph-title">Demand curve with selected elasticity, total revenue and marginal revenue</title>
+          <g class="handles"></g>
+        </svg>
+        <p id="graph-desc" class="visually-hidden"></p>
+        <p id="handle-help" class="visually-hidden">Arrow keys move this point by half a unit of quantity or five cents of price; hold Shift to move ten times as far.</p>
+        <ul class="legend" aria-label="Legend">
+          <li><span class="swatch swatch--demand" aria-hidden="true"></span> Demand</li>
+          <li><span class="swatch swatch--tangent" aria-hidden="true"></span> Tangent</li>
+          <li><span class="swatch swatch--peak" aria-hidden="true"></span> TR peak</li>
+          <li><span class="swatch swatch--handle" aria-hidden="true"></span> Point handle</li>
+        </ul>
+        <p class="muted small" id="tool-help"></p>
+        <p id="graph-note" class="note"></p>
+      </section>
+
+      <div class="panel-stack">
+        <section class="panel" aria-labelledby="readout-heading">
+          <h2 id="readout-heading">At the selected quantity</h2>
+          <div class="field">
+            <label for="sel-q">Quantity</label>
+            <input type="range" id="sel-q" step="0.1">
+            <input type="number" id="sel-q-num" step="0.1" inputmode="decimal" aria-label="Quantity (number)">
+          </div>
+          <dl class="readout" id="readout"></dl>
+          <label class="choice"><input type="checkbox" id="show-tangent"> Show tangent calculation</label>
+          <div id="calc" class="calc" hidden></div>
+          <p id="peak-note" class="note"></p>
+        </section>
+
+        <section class="panel" aria-labelledby="curve-heading">
+          <h2 id="curve-heading">Start from</h2>
+          <div class="field">
+            <label for="preset">Preset curve</label>
+            <select id="preset"></select>
+            <button type="button" id="apply-preset" class="btn btn--quiet btn--small">Use preset</button>
+          </div>
+          <p class="setup__row"><a id="share-link" href="#">Link to this curve</a></p>
+        </section>
+
+        <section class="panel" aria-labelledby="prompts-heading">
+          <h2 id="prompts-heading">Try this</h2>
+          <ol class="prompts" id="prompts"></ol>
+        </section>
+      </div>
+    </div>
+
+    <section class="panel" aria-labelledby="points-heading">
+      <h2 id="points-heading">Demand points</h2>
+      <p class="muted small">Quantity from 0 to 100, price from $0 to $10. Each point must be to the right of and below the one before. The curve runs smoothly through every point.</p>
+      <div class="table-wrap">
+        <table id="points" class="data">
+          <thead><tr><th scope="col">Point</th><th scope="col">Quantity</th><th scope="col">Price ($)</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button type="button" id="add-point" class="btn btn--quiet btn--small">Add a point</button>
+      <p id="points-note" class="note"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="values-heading">
+      <h2 id="values-heading">Values along the curve</h2>
+      <div class="table-wrap">
+        <table id="values" class="data">
+          <caption class="visually-hidden">Price, elasticity, total revenue and marginal revenue at eleven evenly spaced quantities</caption>
+          <thead><tr><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Elasticity</th><th scope="col">Total revenue</th><th scope="col">Marginal revenue</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p id="status" class="visually-hidden" role="status" aria-live="polite"></p>
+  </main>
+
+  <footer>
+    <p>Economic concepts: David Friedman (<a href="http://daviddfriedman.com/Living_Paper/Program_Descriptions/program_descriptions.htm">original program description</a>). Development: Eric McKee.</p>
+    <p>Paul and Virginia Engler College of Business · West Texas A&amp;M University</p>
+  </footer>
+
+  <script src="js/model.js"></script>
+  <script src="js/graph.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
