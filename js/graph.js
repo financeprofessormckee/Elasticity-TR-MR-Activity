@@ -26,10 +26,16 @@
   function fmtTick(v) { return (v < 0 ? '−' : '') + Math.abs(M.round(v, 2)).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
 
   // Build an SVG path from f(q) -> price-axis value, sampled over [q0, q1]. Non-finite values break the path.
-  function pathFor(f, q0, q1, map, lo, hi) {
-    var d = '', pen = false, N = 240;
-    for (var i = 0; i <= N; i++) {
-      var q = q0 + (q1 - q0) * i / N, v = f(q);
+  function pathFor(f, q0, q1, map, lo, hi, curve) {
+    var d = '', pen = false, N = 240, qs = [];
+    for (var n = 0; n <= N; n++) qs.push(q0+(q1-q0)*n/N);
+    if (curve) {
+      qs = qs.concat(M.stationaryQuantities(curve));
+      for (var k = 1; k < curve.points.length; k++) for (var j = 0; j <= 20; j++) qs.push(curve.points[k-1].q+(curve.points[k].q-curve.points[k-1].q)*j/20);
+    }
+    qs.sort(function(a,b){return a-b;});
+    for (var i = 0; i < qs.length; i++) {
+      var q = qs[i], v = f(q);
       if (!isFinite(v)) { pen = false; continue; }
       v = Math.max(lo, Math.min(hi, v));
       d += (pen ? 'L' : 'M') + map.x(q).toFixed(2) + ' ' + map.y(v).toFixed(2);
@@ -43,6 +49,9 @@
               lineFirst {q,p} | null, sketch [{q,p}] | null, handlesOn (bool) } */
   function render(svg, view) {
     var v = view.view, map = mapper(v), c = view.curve;
+    var scale = Math.max(1, WIDTH / (svg.getBoundingClientRect().width || WIDTH));
+    svg.style.setProperty('--tick-size', (11 * scale) + 'px');
+    svg.style.setProperty('--axis-size', (11.5 * scale) + 'px');
     var marks = svg.querySelector('g.marks');
     if (!marks) {
       marks = el('g', { 'class': 'marks', 'aria-hidden': 'true' });
@@ -88,7 +97,7 @@
     var lo = v.pMin - 1, hi = v.pMax + 1;
 
     // Total-revenue peak guide.
-    if (c && view.peak && view.peak.interior) {
+    if (c && view.peak && view.peak.interior && !view.peak.flat) {
       plot.appendChild(el('line', { x1: map.x(view.peak.q), y1: TOP, x2: map.x(view.peak.q), y2: TOP + H, 'class': 'peak-guide' }));
     }
     // Selected-quantity guide.
@@ -97,18 +106,23 @@
     }
 
     if (c) {
+      if (view.showArea && view.selectedQ != null) {
+        var area = M.measures(c, view.selectedQ);
+        plot.appendChild(el('rect', {x: map.x(0), y: map.y(area.p), width: map.x(area.q)-map.x(0), height: map.y(0)-map.y(area.p), 'class': 'revenue-area'}));
+      }
+      if (view.reference) plot.appendChild(el('path', {d: pathFor(function(q){return M.priceAt(view.reference,q);}, view.reference.q0, view.reference.q1,map,lo,hi,view.reference), 'class':'reference-series'}));
       if (view.show.tr) {
         var ktr = v.pMax / view.trTop;
-        plot.appendChild(el('path', { d: pathFor(function (q) { return M.measures(c, q).tr * ktr; }, c.q0, c.q1, map, lo, hi), 'class': 'series series--tr' }));
+        plot.appendChild(el('path', { d: pathFor(function (q) { return M.measures(c, q).tr * ktr; }, c.q0, c.q1, map, lo, hi, c), 'class': 'series series--tr' }));
       }
       if (view.show.e) {
         var ke = v.pMax / M.CONFIG.eCap;
-        plot.appendChild(el('path', { d: pathFor(function (q) { var e = M.measures(c, q).e; return isFinite(e) ? e * ke : hi; }, c.q0, c.q1, map, lo, hi), 'class': 'series series--e' }));
+        plot.appendChild(el('path', { d: pathFor(function (q) { var e = M.measures(c, q).e; return isFinite(e) ? e * ke : hi; }, c.q0, c.q1, map, lo, hi, c), 'class': 'series series--e' }));
       }
       if (view.show.mr) {
-        plot.appendChild(el('path', { d: pathFor(function (q) { return M.measures(c, q).mr; }, c.q0, c.q1, map, lo, hi), 'class': 'series series--mr' }));
+        plot.appendChild(el('path', { d: pathFor(function (q) { return M.measures(c, q).mr; }, c.q0, c.q1, map, lo, hi, c), 'class': 'series series--mr' }));
       }
-      plot.appendChild(el('path', { d: pathFor(function (q) { return M.priceAt(c, q); }, c.q0, c.q1, map, lo, hi), 'class': 'series series--demand' }));
+      plot.appendChild(el('path', { d: pathFor(function (q) { return M.priceAt(c, q); }, c.q0, c.q1, map, lo, hi, c), 'class': 'series series--demand' }));
     }
 
     // Tangent: upper segment (to the price axis) and lower segment (to the quantity axis).
@@ -120,10 +134,15 @@
       plot.appendChild(el('text', { x: (map.x(t.q) + map.x(t.qInt)) / 2 + 6, y: (map.y(t.p) + map.y(0)) / 2 - 6, 'class': 'seg-label' }, 'lower'));
       plot.appendChild(el('circle', { cx: map.x(t.qInt), cy: map.y(0), r: 3.5, 'class': 'intercept' }));
       plot.appendChild(el('circle', { cx: map.x(0), cy: map.y(t.pInt), r: 3.5, 'class': 'intercept' }));
+    } else if (c && t && !t.degenerate) {
+      plot.appendChild(el('line', { x1: LEFT, y1: map.y(t.p), x2: LEFT + W, y2: map.y(t.p), 'class': 'tangent tangent--lower' }));
     }
 
-    if (c && view.peak && view.peak.interior) {
+    if (c && view.peak && view.peak.interior && !view.peak.flat) {
       var pk = view.peak;
+      if (view.show.tr) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.tr * v.pMax / view.trTop), r: 4, 'class': 'peak-mark' }));
+      if (view.show.e) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.e * v.pMax / M.CONFIG.eCap), r: 4, 'class': 'peak-mark' }));
+      if (view.show.mr) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.mr), r: 4, 'class': 'peak-mark' }));
       plot.appendChild(el('rect', { x: map.x(pk.q) - 4.5, y: map.y(M.priceAt(c, pk.q)) - 4.5, width: 9, height: 9, 'class': 'peak-mark', transform: 'rotate(45 ' + map.x(pk.q) + ' ' + map.y(M.priceAt(c, pk.q)) + ')' }));
       marks.appendChild(el('text', { x: Math.min(map.x(pk.q) + 5, LEFT + W - 60), y: TOP + 12, 'class': 'peak-label' }, 'TR peak'));
     }
@@ -146,6 +165,8 @@
   function renderHandles(svg, view, map) {
     var layer = svg.querySelector('g.handles');
     var pts = view.handlesOn && view.curve ? view.curve.points : [];
+    var pixels = svg.getBoundingClientRect().width || WIDTH;
+    var hitSize = Math.max(28, 24 * WIDTH / pixels);
     while (layer.childNodes.length > pts.length) layer.removeChild(layer.lastChild);
     pts.forEach(function (o, i) {
       var h = layer.childNodes[i];
@@ -158,7 +179,8 @@
       var x = map.x(o.q), y = map.y(o.p);
       h.setAttribute('data-index', i);
       h.setAttribute('aria-label', 'Point ' + (i + 1) + ': quantity ' + M.qty(o.q) + ', price ' + M.money(o.p));
-      h.childNodes[0].setAttribute('x', x - 14); h.childNodes[0].setAttribute('y', y - 14);
+      h.childNodes[0].setAttribute('width', hitSize); h.childNodes[0].setAttribute('height', hitSize);
+      h.childNodes[0].setAttribute('x', x - hitSize / 2); h.childNodes[0].setAttribute('y', y - hitSize / 2);
       h.childNodes[1].setAttribute('x', x - 5); h.childNodes[1].setAttribute('y', y - 5);
     });
   }

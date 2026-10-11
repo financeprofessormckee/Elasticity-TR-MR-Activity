@@ -28,7 +28,8 @@
 
   var PRESETS = [
     { id: 'linear', name: 'Straight line', points: [{ q: 0, p: 10 }, { q: 100, p: 0 }] },
-    { id: 'unit', name: 'Unit-elastic (P × Q constant)', points: geometric(9, 20, 100).map(function (q) { return { q: q, p: 200 / q }; }) },
+    { id: 'exact-unit', name: 'Exact unit elasticity · P = 200/Q', kind: 'constant-revenue', points: geometric(9, 20, 100).map(function (q) { return { q: q, p: 200 / q }; }) },
+    { id: 'unit', name: 'Nearly unit-elastic (TR ≈ constant)', points: geometric(9, 20, 100).map(function (q) { return { q: q, p: 200 / q }; }) },
     { id: 'convex', name: 'Bowed in (convex)', points: even(7).map(function (q) { return { q: q, p: 10 * Math.pow(1 - q / 100, 2) }; }) },
     { id: 'concave', name: 'Bowed out (concave)', points: even(7).map(function (q) { return { q: q, p: 10 * (1 - Math.pow(q / 100, 2)) }; }) }
   ];
@@ -56,11 +57,11 @@
 
   // Returns null for a valid point list, or a sentence explaining the first problem.
   function validatePoints(pts) {
-    if (!pts || pts.length < CONFIG.minPoints) return 'A demand curve needs at least two points.';
+    if (!Array.isArray(pts) || pts.length < CONFIG.minPoints) return 'A demand curve needs at least two points.';
     if (pts.length > CONFIG.maxPoints) return 'A demand curve can have at most ' + CONFIG.maxPoints + ' points.';
     for (var i = 0; i < pts.length; i++) {
       var o = pts[i];
-      if (!isFinite(o.q) || !isFinite(o.p)) return 'Point ' + (i + 1) + ' needs both a quantity and a price.';
+      if (!o || typeof o.q !== 'number' || typeof o.p !== 'number' || !isFinite(o.q) || !isFinite(o.p)) return 'Point ' + (i + 1) + ' needs both a quantity and a price.';
       if (o.q < 0 || o.q > CONFIG.qMax) return 'Point ' + (i + 1) + ': quantity must be between 0 and ' + CONFIG.qMax + '.';
       if (o.p < 0 || o.p > CONFIG.pMax) return 'Point ' + (i + 1) + ': price must be between $0 and $' + CONFIG.pMax + '.';
       if (i > 0) {
@@ -184,6 +185,7 @@
   // Price and slope dP/dQ at q (q is clamped to the curve's range).
   function evaluate(curve, q) {
     q = clamp(q, curve.q0, curve.q1);
+    if (curve.kind === 'constant-revenue') return {q: q, p: curve.revenue / q, slope: -curve.revenue / (q * q)};
     var k = segment(curve, q), a = curve.points[k], b = curve.points[k + 1];
     var h = b.q - a.q, t = (q - a.q) / h, ma = curve.tangents[k], mb = curve.tangents[k + 1];
     var t2 = t * t, t3 = t2 * t;
@@ -197,6 +199,7 @@
   // Elasticity (a positive number), total revenue and marginal revenue at q.
   function measures(curve, q) {
     var v = evaluate(curve, q), e;
+    if (curve.kind === 'constant-revenue') return {q: v.q, p: v.p, slope: v.slope, e: 1, tr: curve.revenue, mr: 0};
     if (v.p <= 1e-12) e = 0;
     else if (v.q <= 1e-12 || v.slope >= -1e-12) e = Infinity;
     else e = -v.p / (v.q * v.slope);
@@ -205,37 +208,78 @@
 
   /* ---------- Total-revenue maximum ---------- */
 
-  function trMax(curve) {
-    var N = 2000, best = -1, bestQ = curve.q0, idx = 0;
-    for (var i = 0; i <= N; i++) {
-      var q = curve.q0 + (curve.q1 - curve.q0) * i / N, tr = priceAt(curve, q) * q;
-      if (tr > best) { best = tr; bestQ = q; idx = i; }
-    }
-    if (idx === 0 || idx === N) {
-      return { q: bestQ, tr: best, interior: false, end: idx === 0 ? 'low' : 'high' };
-    }
-    // Refine with bisection on MR, which changes sign from + to − across the maximum.
-    var step = (curve.q1 - curve.q0) / N, lo = bestQ - step, hi = bestQ + step;
-    if (measures(curve, lo).mr > 0 && measures(curve, hi).mr < 0) {
-      for (var j = 0; j < 60; j++) {
-        var mid = (lo + hi) / 2;
-        if (measures(curve, mid).mr > 0) lo = mid; else hi = mid;
+  // Coefficients in normalized segment coordinates t = (Q − Qa) / h.
+  function revenueDerivative(curve, k) {
+    var a = curve.points[k], b = curve.points[k + 1], h = b.q - a.q;
+    var ma = curve.tangents[k], mb = curve.tangents[k + 1];
+    var A = 2 * (a.p - b.p) + h * (ma + mb);
+    var B = 3 * (b.p - a.p) - h * (2 * ma + mb), C = h * ma;
+    var r = a.q / h;
+    return [a.p + r * C, 2 * C + 2 * r * B, 3 * B + 3 * r * A, 4 * A];
+  }
+
+  function polynomial(coeffs, x) {
+    var y = 0;
+    for (var i = coeffs.length - 1; i >= 0; i--) y = y * x + coeffs[i];
+    return y;
+  }
+
+  // Isolate every root in [0, 1], splitting at derivative roots. Each remaining
+  // interval is monotone, so bisection cannot skip a narrow peak or a repeated root.
+  function rootsInUnitInterval(coeffs) {
+    var c = coeffs.slice();
+    while (c.length > 1 && c[c.length - 1] === 0) c.pop();
+    if (c.length < 2) return [];
+    var derivative = c.slice(1).map(function (v, i) { return v * (i + 1); });
+    var cuts = [0].concat(rootsInUnitInterval(derivative), [1]), roots = [];
+    var tolerance = 1e-12 * Math.max.apply(null, c.map(Math.abs));
+    function add(x) { if (!roots.some(function (r) { return Math.abs(r - x) < 1e-10; })) roots.push(x); }
+    cuts.forEach(function (x) { if (Math.abs(polynomial(c, x)) <= tolerance) add(x); });
+    for (var i = 1; i < cuts.length; i++) {
+      var lo = cuts[i - 1], hi = cuts[i], fl = polynomial(c, lo), fh = polynomial(c, hi);
+      if (fl * fh >= 0) continue;
+      for (var j = 0; j < 55; j++) {
+        var mid = (lo + hi) / 2, fm = polynomial(c, mid);
+        if ((fl > 0) === (fm > 0)) { lo = mid; fl = fm; } else hi = mid;
       }
-      bestQ = (lo + hi) / 2;
+      add((lo + hi) / 2);
     }
-    var at = measures(curve, bestQ);
-    return { q: bestQ, tr: at.tr, interior: true, e: at.e, mr: at.mr };
+    return roots.sort(function (a, b) { return a - b; });
+  }
+
+  function stationaryQuantities(curve) {
+    if (curve.kind === 'constant-revenue') return []; // Every point is stationary.
+    var qs = [];
+    for (var k = 0; k < curve.points.length - 1; k++) {
+      var a = curve.points[k], h = curve.points[k + 1].q - a.q;
+      rootsInUnitInterval(revenueDerivative(curve, k)).forEach(function (t) {
+        var q = a.q + t * h;
+        if (q > curve.q0 && q < curve.q1 && !qs.some(function (v) { return Math.abs(v - q) < 1e-8; })) qs.push(q);
+      });
+    }
+    return qs.sort(function (a, b) { return a - b; });
+  }
+
+  function trMax(curve) {
+    if (curve.kind === 'constant-revenue') return {q: (curve.q0 + curve.q1) / 2, tr: curve.revenue, interior: true, flat: true, e: 1, mr: 0};
+    // TR is quartic on each spline segment. Its global maximum is at an
+    // endpoint, a knot, or a root of the cubic MR; examine all candidates.
+    var candidates = curve.points.map(function (p) { return p.q; }).concat(stationaryQuantities(curve));
+    var best = measures(curve, curve.q0);
+    candidates.forEach(function (q) { var m = measures(curve, q); if (m.tr > best.tr) best = m; });
+    var interior = best.q > curve.q0 && best.q < curve.q1;
+    return { q: best.q, tr: best.tr, interior: interior, end: interior ? null : best.q === curve.q0 ? 'low' : 'high', e: best.e, mr: best.mr };
   }
 
   /* ---------- Tangent (Friedman's calc tool) ---------- */
 
   function tangent(curve, q) {
     var m = measures(curve, q), s = m.slope;
-    var flat = s >= -1e-12;
-    var qInt = flat ? Infinity : m.q - m.p / s;   // where the tangent reaches P = 0
+    var flat = s >= -1e-12, degenerate = flat && m.p <= 1e-12;
+    var qInt = degenerate ? NaN : flat ? Infinity : m.q - m.p / s;
     var pInt = m.p - s * m.q;                       // where it reaches Q = 0
-    var eSegments = m.q <= 1e-12 ? Infinity : (flat ? Infinity : (qInt - m.q) / m.q);
-    return { q: m.q, p: m.p, slope: s, qInt: qInt, pInt: pInt, eFormula: m.e, eSegments: eSegments };
+    var eSegments = degenerate ? NaN : m.q <= 1e-12 ? Infinity : (flat ? Infinity : (qInt - m.q) / m.q);
+    return { q: m.q, p: m.p, slope: s, qInt: qInt, pInt: pInt, eFormula: m.e, eSegments: eSegments, degenerate: degenerate };
   }
 
   /* ---------- Tables and views ---------- */
@@ -260,8 +304,7 @@
     opts = opts || {};
     var v = { qMax: CONFIG.qMax, pMin: 0, pMax: CONFIG.pMax, mrClipped: false, offscale: null };
     if (opts.showMR) {
-      var minMR = Infinity;
-      sample(curve, 201).forEach(function (r) { if (r.mr < minMR) minMR = r.mr; });
+      var minMR = mrRange(curve).min;
       if (minMR < 0) {
         v.pMin = -niceCeil(-minMR);
         if (v.pMin < CONFIG.mrFloor) { v.pMin = CONFIG.mrFloor; v.mrClipped = true; }
@@ -270,7 +313,8 @@
     if (opts.tangentAt != null) {
       var t = tangent(curve, opts.tangentAt), capQ = CONFIG.qMax * CONFIG.rescaleCap, capP = CONFIG.pMax * CONFIG.rescaleCap;
       if (t.qInt > v.qMax) {
-        if (t.qInt > capQ) { v.qMax = capQ; v.offscale = 'quantity'; } else v.qMax = niceCeil(t.qInt);
+        if (!isFinite(t.qInt)) { v.offscale = 'quantity'; }
+        else if (t.qInt > capQ) { v.qMax = capQ; v.offscale = 'quantity'; } else v.qMax = niceCeil(t.qInt);
       }
       if (t.pInt > v.pMax) {
         if (t.pInt > capP) { v.pMax = capP; v.offscale = v.offscale ? 'both' : 'price'; } else v.pMax = niceCeil(t.pInt);
@@ -281,9 +325,7 @@
 
   // Top of the TR right axis: a nice round number at or above the curve's largest TR.
   function trScaleTop(curve) {
-    var hi = 0;
-    sample(curve, 201).forEach(function (r) { if (r.tr > hi) hi = r.tr; });
-    return niceCeil(Math.max(hi, 1));
+    return niceCeil(Math.max(trMax(curve).tr, 1));
   }
 
   /* ---------- Guided prompts ---------- */
@@ -302,23 +344,27 @@
   function promptStatus(curve, selectedQ, showTangent) {
     var peak = trMax(curve), at = measures(curve, selectedQ);
     return {
-      peak: peak.interior && Math.abs(at.q - peak.q) <= CONFIG.peakTolerance,
+      peak: !!peak.flat || peak.interior && Math.abs(at.q - peak.q) <= CONFIG.peakTolerance,
       unit: isUnitElastic(curve),
       elasticLine: curve.points.length === 2 && at.e > 1 && isFinite(at.e),
-      calc: !!showTangent && curve.points.length >= 3
+      calc: !!showTangent && curve.points.length >= 3 && at.q > 0 && at.p > 0 && isFinite(at.e)
     };
   }
 
   /* ---------- Sharing ---------- */
 
   function encodePoints(pts) {
-    return pts.map(function (o) { return round(o.q, 1) + ':' + round(o.p, 2); }).join(',');
+    // Preserve the actual curve, including full-precision preset prices and tight gaps.
+    return pts.map(function (o) { return o.q + ':' + o.p; }).join(',');
   }
 
   function decodePoints(str) {
-    if (!str) return null;
-    var pts = String(str).split(',').map(function (pair) {
+    if (typeof str !== 'string' || !str || str.length > 2048) return null;
+    var pairs = str.split(','), number = /^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+    if (pairs.length < CONFIG.minPoints || pairs.length > CONFIG.maxPoints) return null;
+    var pts = pairs.map(function (pair) {
       var bits = pair.split(':');
+      if (bits.length !== 2 || !number.test(bits[0]) || !number.test(bits[1])) return null;
       return { q: Number(bits[0]), p: Number(bits[1]) };
     });
     return validatePoints(pts) ? null : pts;
@@ -332,7 +378,43 @@
     return (v < -0.5 * Math.pow(10, -d) ? '−$' : '$') + s;
   }
   function qty(v) { return isFinite(v) ? round(v, 1).toLocaleString('en-US', { maximumFractionDigits: 1 }) : '∞'; }
-  function elasticity(e) { return isFinite(e) ? e.toFixed(2) : '∞ (undefined)'; }
+  function elasticity(e) { return Number.isNaN(e) ? 'Undefined' : isFinite(e) ? e.toFixed(2) : '∞ (undefined)'; }
+
+  // An exact teaching reference, explicitly converted to a spline before editing.
+  function constantRevenueCurve() {
+    var curve = buildCurve(getPreset('exact-unit').points);
+    curve.kind = 'constant-revenue'; curve.revenue = 200;
+    return curve;
+  }
+
+  function mrRange(curve) {
+    if (curve.kind === 'constant-revenue') return {min: 0, max: 0};
+    var values = [];
+    for (var k = 0; k < curve.points.length - 1; k++) {
+      var c = revenueDerivative(curve,k);
+      var roots = rootsInUnitInterval(c.slice(1).map(function(v,i){return v*(i+1);}));
+      [0,1].concat(roots).forEach(function(t){values.push(polynomial(c,t));});
+    }
+    return {min: Math.min.apply(null,values), max: Math.max.apply(null,values)};
+  }
+
+  function revenueChange(curve, from, to) {
+    var a = measures(curve,from), b = measures(curve,to), delta = b.tr - a.tr;
+    var tolerance = 1e-9 * Math.max(1,Math.abs(a.tr),Math.abs(b.tr));
+    return {from:a, to:b, delta:delta, direction:Math.abs(delta)<=tolerance?'same':delta>0?'increase':'decrease'};
+  }
+
+  function valuesCsv(curve, selectedQ) {
+    var qs = sample(curve,101).map(function(r){return r.q;}).concat(stationaryQuantities(curve),[clamp(selectedQ,curve.q0,curve.q1)]);
+    qs.sort(function(a,b){return a-b;});
+    var rows = ['Quantity (units/week),Price ($/unit),Elasticity,Total revenue ($/week),Marginal revenue ($/unit),Demand model'];
+    qs.forEach(function(q,i){
+      if(i && Math.abs(q-qs[i-1])<1e-10) return;
+      var m=measures(curve,q);
+      rows.push([m.q,m.p,isFinite(m.e)?m.e:'undefined',m.tr,m.mr,curve.kind==='constant-revenue'?'P=200/Q':'Monotone cubic spline'].join(','));
+    });
+    return rows.join('\r\n')+'\r\n';
+  }
 
   return {
     CONFIG: CONFIG,
@@ -349,6 +431,11 @@
     priceAt: priceAt,
     measures: measures,
     trMax: trMax,
+    stationaryQuantities: stationaryQuantities,
+    constantRevenueCurve: constantRevenueCurve,
+    mrRange: mrRange,
+    revenueChange: revenueChange,
+    valuesCsv: valuesCsv,
     tangent: tangent,
     sample: sample,
     niceCeil: niceCeil,
