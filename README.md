@@ -16,7 +16,7 @@ This activity is a browser adaptation of Proposal 6 in David Friedman's
 ### The Economic Model
 
 * **Definitions:** elasticity e = −(dQ/dP)·(P/Q); TR = P·Q; MR = dTR/dQ.
-* **Central relationship:** where total revenue peaks, elasticity is one and marginal revenue is zero.
+* **Central relationship:** at a positive-price interior maximum of total revenue, elasticity is one and marginal revenue is zero. A maximum at the boundary of the drawn range need not satisfy this condition.
 * **Calc tool:** elasticity at any point shown as the ratio of the two tangent segments (Friedman's textbook geometry), with the view rescaling so the tangent fits.
 
 The full model, its adaptations from Friedman's description, and acceptance cases are in
@@ -26,6 +26,13 @@ The full model, its adaptations from Friedman's description, and acceptance case
 
 Open `index.html` in a browser. There's no build step, installation, or server, and
 everything is local. Model tests run with Node: `node tests/model-tests.cjs`.
+
+Run the model and DOM regression suites with Node 20 or later: `npm ci && npm test`.
+The only installed dependency is for development tests; the activity has no runtime dependencies.
+The detailed review, reproduced issues, and validation limits are in [REVIEW.md](REVIEW.md).
+
+The editable “nearly unit-elastic” preset is a spline through constant-revenue points,
+not the exact function P = 200/Q. Its approximation is intentional and explicitly labelled.
 
 ### License and Citation
 

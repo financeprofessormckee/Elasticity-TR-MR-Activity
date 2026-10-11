@@ -24,7 +24,8 @@
   <main id="main" tabindex="-1">
     <p class="eyebrow">Friedman Economic Games · Proposal 6</p>
     <h1>Elasticity, TR, MR</h1>
-    <p class="intro">Draw a demand curve, then reshape it and watch its elasticity, total revenue and marginal revenue change with it. Where total revenue is highest, elasticity is exactly one and marginal revenue is zero. See it happen on any curve you like.</p>
+    <p class="intro">Draw a demand curve, then reshape it and watch its elasticity, total revenue and marginal revenue change with it. At an interior maximum of total revenue, elasticity is one and marginal revenue is zero. An endpoint maximum need not satisfy this relationship.</p>
+    <noscript><p class="note">This interactive activity needs JavaScript. Enable it to draw curves and calculate values.</p></noscript>
 
     <details class="howto" open>
       <summary>How to use it</summary>
@@ -76,7 +77,7 @@
           <div class="field">
             <label for="sel-q">Quantity</label>
             <input type="range" id="sel-q" step="0.1">
-            <input type="number" id="sel-q-num" step="0.1" inputmode="decimal" aria-label="Quantity (number)">
+            <input type="number" id="sel-q-num" step="any" inputmode="decimal" aria-label="Quantity (number)">
           </div>
           <dl class="readout" id="readout"></dl>
           <label class="choice"><input type="checkbox" id="show-tangent"> Show tangent calculation</label>
@@ -104,7 +105,7 @@
     <section class="panel" aria-labelledby="points-heading">
       <h2 id="points-heading">Demand points</h2>
       <p class="muted small">Quantity from 0 to 100, price from $0 to $10. Each point must be to the right of and below the one before. The curve runs smoothly through every point.</p>
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Demand points, scroll horizontally if needed">
         <table id="points" class="data">
           <thead><tr><th scope="col">Point</th><th scope="col">Quantity</th><th scope="col">Price ($)</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr></thead>
           <tbody></tbody>
@@ -116,10 +117,10 @@
 
     <section class="panel" aria-labelledby="values-heading">
       <h2 id="values-heading">Values along the curve</h2>
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Values along the curve, scroll horizontally if needed">
         <table id="values" class="data">
           <caption class="visually-hidden">Price, elasticity, total revenue and marginal revenue at eleven evenly spaced quantities</caption>
-          <thead><tr><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Elasticity</th><th scope="col">Total revenue</th><th scope="col">Marginal revenue</th></tr></thead>
+          <thead><tr><th scope="col">Quantity (units/week)</th><th scope="col">Price ($/unit)</th><th scope="col">Elasticity</th><th scope="col">Total revenue ($/week)</th><th scope="col">Marginal revenue ($/unit)</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
