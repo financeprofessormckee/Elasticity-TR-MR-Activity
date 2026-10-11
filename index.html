@@ -24,21 +24,26 @@
   <main id="main" tabindex="-1">
     <p class="eyebrow">Friedman Economic Games · Proposal 6</p>
     <h1>Elasticity, TR, MR</h1>
-    <p class="intro">Draw a demand curve, then reshape it and watch its elasticity, total revenue and marginal revenue change with it. Where total revenue is highest, elasticity is exactly one and marginal revenue is zero. See it happen on any curve you like.</p>
+    <p class="intro">Draw a demand curve, then reshape it and watch its elasticity, total revenue and marginal revenue change with it. At an interior maximum of total revenue, elasticity is one and marginal revenue is zero. Explore how a price change affects revenue, compare curves, and test your predictions. An endpoint maximum need not satisfy the interior rule.</p>
+    <noscript><p class="note">This interactive activity needs JavaScript. Enable it to draw curves and calculate values.</p></noscript>
 
-    <details class="howto" open>
+    <details class="howto">
       <summary>How to use it</summary>
       <ol>
         <li>Start from a preset, or draw your own demand curve: the <strong>Line</strong> tool takes two clicks, and the <strong>Sketch</strong> tool follows your pointer with smoothing. You can also type the points into the table below the graph.</li>
         <li>With the <strong>Reshape</strong> tool, drag the square handles, or Tab to one and use the arrow keys. Clicking elsewhere on the graph picks a quantity.</li>
-        <li>Turn on <strong>Elasticity</strong>, <strong>Total revenue</strong> and <strong>Marginal revenue</strong> to see them drawn from your curve. MR shares the price axis. Elasticity and TR use the right-hand axis; when both are on, the Right axis button switches between them.</li>
+        <li>Turn on <strong>Elasticity</strong>, <strong>Total revenue</strong> and <strong>Marginal revenue</strong> to see them drawn from your curve. The aligned panels use the same quantity scale, each with its own units. The original overlay view is also available; its Right axis button switches between elasticity and TR.</li>
         <li>Choose a quantity and turn on <strong>Show tangent calculation</strong> to compute elasticity from the two tangent segments and compare it with the formula.</li>
       </ol>
     </details>
 
     <div class="play">
       <section class="panel panel--graph" aria-labelledby="graph-heading">
-        <h2 id="graph-heading">Demand curve</h2>
+        <div class="panel-heading"><div><p class="eyebrow">Explore the relationship</p><h2 id="graph-heading">One demand curve. Three connected views.</h2></div></div>
+        <div class="workspace-bar">
+          <div class="field"><label for="graph-layout">View</label><select id="graph-layout"><option value="panels">Aligned panels</option><option value="overlay">Original overlay</option></select></div>
+          <div class="history-controls" role="group" aria-label="Curve edit history"><button type="button" class="btn btn--small" id="undo" disabled>Undo</button><button type="button" class="btn btn--small" id="redo" disabled>Redo</button></div>
+        </div>
 
         <fieldset class="tools">
           <legend>Tool</legend>
@@ -54,10 +59,16 @@
           <button type="button" class="btn btn--quiet btn--small" id="right-axis" hidden></button>
         </div>
 
+        <p class="chart-heading">Demand and marginal revenue <span>$/unit</span></p>
         <svg id="graph" viewBox="0 0 416 346" role="group" aria-labelledby="graph-title" aria-describedby="graph-desc">
           <title id="graph-title">Demand curve with selected elasticity, total revenue and marginal revenue</title>
           <g class="handles"></g>
         </svg>
+        <div id="linked-panels">
+          <section id="tr-panel" aria-labelledby="tr-heading"><h3 class="chart-heading" id="tr-heading">Total revenue <span>$/week</span></h3><svg id="tr-graph" viewBox="0 0 416 166" role="img" aria-labelledby="tr-heading" aria-describedby="linked-desc"></svg></section>
+          <section id="e-panel" aria-labelledby="e-heading"><h3 class="chart-heading" id="e-heading">Elasticity <span>pure number</span></h3><svg id="e-graph" viewBox="0 0 416 166" role="img" aria-labelledby="e-heading" aria-describedby="linked-desc"></svg></section>
+          <p id="linked-desc" class="visually-hidden"></p>
+        </div>
         <p id="graph-desc" class="visually-hidden"></p>
         <p id="handle-help" class="visually-hidden">Arrow keys move this point by half a unit of quantity or five cents of price; hold Shift to move ten times as far.</p>
         <ul class="legend" aria-label="Legend">
@@ -65,22 +76,26 @@
           <li><span class="swatch swatch--tangent" aria-hidden="true"></span> Tangent</li>
           <li><span class="swatch swatch--peak" aria-hidden="true"></span> TR peak</li>
           <li><span class="swatch swatch--handle" aria-hidden="true"></span> Point handle</li>
+          <li id="reference-legend" hidden><span class="swatch swatch--reference" aria-hidden="true"></span> Pinned reference</li>
         </ul>
+        <label class="choice"><input type="checkbox" id="show-area" checked> Show P × Q revenue rectangle</label>
         <p class="muted small" id="tool-help"></p>
         <p id="graph-note" class="note"></p>
       </section>
 
       <div class="panel-stack">
         <section class="panel" aria-labelledby="readout-heading">
-          <h2 id="readout-heading">At the selected quantity</h2>
+          <p class="eyebrow">Inspect a quantity</p><h2 id="readout-heading">At the selected quantity</h2>
           <div class="field">
             <label for="sel-q">Quantity</label>
             <input type="range" id="sel-q" step="0.1">
-            <input type="number" id="sel-q-num" step="0.1" inputmode="decimal" aria-label="Quantity (number)">
+            <input type="number" id="sel-q-num" step="any" inputmode="decimal" aria-label="Quantity (number)">
           </div>
           <dl class="readout" id="readout"></dl>
           <label class="choice"><input type="checkbox" id="show-tangent"> Show tangent calculation</label>
           <div id="calc" class="calc" hidden></div>
+          <div id="interpretation" class="insight" aria-live="off"></div>
+          <button type="button" id="select-peak" class="btn btn--quiet btn--small">Select revenue maximum</button>
           <p id="peak-note" class="note"></p>
         </section>
 
@@ -91,20 +106,46 @@
             <select id="preset"></select>
             <button type="button" id="apply-preset" class="btn btn--quiet btn--small">Use preset</button>
           </div>
-          <p class="setup__row"><a id="share-link" href="#">Link to this curve</a></p>
+          <p id="model-note" class="note"></p><button type="button" class="btn btn--quiet btn--small" id="make-editable" hidden>Make an editable approximation</button>
+          <p class="setup__row"><a id="share-link" href="#">Copy curve and view link</a></p>
+          <div id="share-fallback" hidden><label for="share-url">Select and copy this link</label><input type="text" id="share-url" readonly></div>
+          <p class="small muted">Links restore the current curve and view. The pinned reference and edit history stay in this tab.</p>
         </section>
 
+        <section class="panel" aria-labelledby="prediction-heading">
+          <p class="eyebrow">Predict → check → explain</p><h2 id="prediction-heading">What happens to revenue?</h2>
+          <p id="prediction-question"></p>
+          <div class="field"><label for="prediction-step">Quantity change</label><input id="prediction-step" type="number" min="-100" max="100" step="any" value="5" aria-describedby="prediction-hint"></div>
+          <p id="prediction-hint" class="small muted">A finite move may cross a revenue peak. Use both endpoints, not just the starting elasticity.</p>
+          <div class="field"><label for="prediction-answer">Your prediction</label><select id="prediction-answer"><option value="">Choose…</option><option value="increase">Revenue increases</option><option value="decrease">Revenue decreases</option><option value="same">Revenue stays the same</option></select></div>
+          <button class="btn" type="button" id="check-prediction">Check prediction</button>
+          <div id="prediction-result" class="insight" role="status" hidden></div>
+          <button class="btn btn--quiet btn--small" type="button" id="inspect-prediction" hidden>Inspect the new quantity</button>
+        </section>
+        <section class="panel" aria-labelledby="comparison-heading">
+          <h2 id="comparison-heading">Compare a second curve</h2>
+          <p class="small muted">Pin this demand curve, then reshape it or choose another preset. Compare both at the selected quantity.</p>
+          <div class="field"><button class="btn btn--quiet btn--small" id="pin-curve" type="button">Pin current curve</button><button class="btn btn--quiet btn--small" id="clear-curve" type="button" hidden>Clear reference</button></div>
+          <div id="comparison" hidden></div>
+        </section>
         <section class="panel" aria-labelledby="prompts-heading">
-          <h2 id="prompts-heading">Try this</h2>
+          <h2 id="prompts-heading">Exploration checklist</h2><p class="muted small">These checks describe the current curve. They are not a score.</p>
           <ol class="prompts" id="prompts"></ol>
         </section>
       </div>
     </div>
 
+    <details class="howto">
+      <summary>Why do the three views move together?</summary>
+      <p>TR = P × Q. Along demand, MR = dTR/dQ = P + Q(dP/dQ). Where price, quantity, and slope are nonzero, this is also <strong>MR = P(1 − 1/e)</strong>.</p>
+      <p>For a small price cut: elastic demand (e &gt; 1) raises revenue; inelastic demand (e &lt; 1) lowers it. At e = 1 revenue is locally stationary. That condition alone does not prove a maximum on an arbitrary curved demand.</p>
+      <p>The shaded rectangle on the demand graph has area P × Q. Follow the same quantity down the other panels to read total revenue and elasticity on their own scales.</p>
+    </details>
     <section class="panel" aria-labelledby="points-heading">
       <h2 id="points-heading">Demand points</h2>
+      <p class="note" id="points-model-note" hidden>The exact P = 200/Q reference is read-only. Use “Make an editable approximation” above to reshape it.</p>
       <p class="muted small">Quantity from 0 to 100, price from $0 to $10. Each point must be to the right of and below the one before. The curve runs smoothly through every point.</p>
-      <div class="table-wrap">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Demand points, scroll horizontally if needed">
         <table id="points" class="data">
           <thead><tr><th scope="col">Point</th><th scope="col">Quantity</th><th scope="col">Price ($)</th><th scope="col"><span class="visually-hidden">Remove</span></th></tr></thead>
           <tbody></tbody>
@@ -115,11 +156,12 @@
     </section>
 
     <section class="panel" aria-labelledby="values-heading">
-      <h2 id="values-heading">Values along the curve</h2>
-      <div class="table-wrap">
+      <div class="panel-heading"><h2 id="values-heading">Values along the curve</h2><button type="button" class="btn btn--quiet btn--small" id="download-csv">Download values (CSV)</button></div>
+      <p class="small muted">The table samples 11 quantities. The CSV includes 101 evenly spaced quantities, the selected point, and all isolated stationary points.</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Values along the curve, scroll horizontally if needed">
         <table id="values" class="data">
           <caption class="visually-hidden">Price, elasticity, total revenue and marginal revenue at eleven evenly spaced quantities</caption>
-          <thead><tr><th scope="col">Quantity</th><th scope="col">Price</th><th scope="col">Elasticity</th><th scope="col">Total revenue</th><th scope="col">Marginal revenue</th></tr></thead>
+          <thead><tr><th scope="col">Quantity (units/week)</th><th scope="col">Price ($/unit)</th><th scope="col">Elasticity</th><th scope="col">Total revenue ($/week)</th><th scope="col">Marginal revenue ($/unit)</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -135,6 +177,7 @@
 
   <script src="js/model.js"></script>
   <script src="js/graph.js"></script>
+  <script src="js/linked-graphs.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
