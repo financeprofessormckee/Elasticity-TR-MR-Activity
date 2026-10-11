@@ -120,10 +120,15 @@
       plot.appendChild(el('text', { x: (map.x(t.q) + map.x(t.qInt)) / 2 + 6, y: (map.y(t.p) + map.y(0)) / 2 - 6, 'class': 'seg-label' }, 'lower'));
       plot.appendChild(el('circle', { cx: map.x(t.qInt), cy: map.y(0), r: 3.5, 'class': 'intercept' }));
       plot.appendChild(el('circle', { cx: map.x(0), cy: map.y(t.pInt), r: 3.5, 'class': 'intercept' }));
+    } else if (c && t && !t.degenerate) {
+      plot.appendChild(el('line', { x1: LEFT, y1: map.y(t.p), x2: LEFT + W, y2: map.y(t.p), 'class': 'tangent tangent--lower' }));
     }
 
     if (c && view.peak && view.peak.interior) {
       var pk = view.peak;
+      if (view.show.tr) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.tr * v.pMax / view.trTop), r: 4, 'class': 'peak-mark' }));
+      if (view.show.e) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.e * v.pMax / M.CONFIG.eCap), r: 4, 'class': 'peak-mark' }));
+      if (view.show.mr) plot.appendChild(el('circle', { cx: map.x(pk.q), cy: map.y(pk.mr), r: 4, 'class': 'peak-mark' }));
       plot.appendChild(el('rect', { x: map.x(pk.q) - 4.5, y: map.y(M.priceAt(c, pk.q)) - 4.5, width: 9, height: 9, 'class': 'peak-mark', transform: 'rotate(45 ' + map.x(pk.q) + ' ' + map.y(M.priceAt(c, pk.q)) + ')' }));
       marks.appendChild(el('text', { x: Math.min(map.x(pk.q) + 5, LEFT + W - 60), y: TOP + 12, 'class': 'peak-label' }, 'TR peak'));
     }
@@ -146,6 +151,8 @@
   function renderHandles(svg, view, map) {
     var layer = svg.querySelector('g.handles');
     var pts = view.handlesOn && view.curve ? view.curve.points : [];
+    var pixels = svg.getBoundingClientRect().width || WIDTH;
+    var hitSize = Math.max(28, 24 * WIDTH / pixels);
     while (layer.childNodes.length > pts.length) layer.removeChild(layer.lastChild);
     pts.forEach(function (o, i) {
       var h = layer.childNodes[i];
@@ -158,7 +165,8 @@
       var x = map.x(o.q), y = map.y(o.p);
       h.setAttribute('data-index', i);
       h.setAttribute('aria-label', 'Point ' + (i + 1) + ': quantity ' + M.qty(o.q) + ', price ' + M.money(o.p));
-      h.childNodes[0].setAttribute('x', x - 14); h.childNodes[0].setAttribute('y', y - 14);
+      h.childNodes[0].setAttribute('width', hitSize); h.childNodes[0].setAttribute('height', hitSize);
+      h.childNodes[0].setAttribute('x', x - hitSize / 2); h.childNodes[0].setAttribute('y', y - hitSize / 2);
       h.childNodes[1].setAttribute('x', x - 5); h.childNodes[1].setAttribute('y', y - 5);
     });
   }

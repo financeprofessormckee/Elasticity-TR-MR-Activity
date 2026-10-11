@@ -1,0 +1,10 @@
+{
+  "name": "elasticity-tr-mr-activity",
+  "private": true,
+  "scripts": {
+    "test": "node tests/model-tests.cjs && node --test tests/regression-tests.cjs tests/ui-tests.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}

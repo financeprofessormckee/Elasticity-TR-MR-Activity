@@ -1,5 +1,27 @@
 # Elasticity, TR, MR — browser specification (v1)
 
+## Proposed conservative revision
+
+The implementation in this branch preserves the v1 interaction and layout. The following
+corrections supersede conflicting v1 details below; they are proposals for review, not claims
+of author approval:
+
+- The MR = 0 / e = 1 result concerns positive-price **interior** revenue maxima. Boundary
+  maxima do not imply that MR has one sign everywhere on a nonlinear curve.
+- Revenue maxima are found among all spline knots, endpoints, and stationary points,
+  isolating roots of the cubic MR on each segment. A uniform grid is not the optimizer.
+- The unit-elastic spline preset and guided prompt are explicitly approximate. The existing
+  5% revenue-band check is retained; it does not prove elasticity is exactly one.
+- When both price and slope are zero at the right endpoint, the readout uses the one-sided
+  limit e = 0, but the point formula and tangent segment ratio are undefined. A positive-price
+  horizontal tangent has no finite quantity intercept and no longer forces a 10× zoom-out.
+- Curve links preserve full coordinate precision and reject empty, extra, or malformed fields.
+  Existing valid v1 links remain supported. Other query parameters and URL fragments survive.
+- Point edits preserve input elements and ordinary keyboard focus progression. Numeric fields
+  accept the same precision as the model. Invalid shared curves are explained rather than silently reset.
+
+See [REVIEW.md](REVIEW.md) for evidence and validation.
+
 - **Status:** decided and implemented 2026-09-30. Decisions by Eric McKee (economist; development lead), standing in for the open "questions for David." **David Friedman's review is invited but not blocking**; any change he asks for becomes a spec revision.
 - **Source:** Friedman's detailed description of Proposal 6 on the [program descriptions page](http://daviddfriedman.com/Living_Paper/Program_Descriptions/program_descriptions.htm), re-read 2026-09-30. Fresh code; no legacy program exists or was inspected.
 - **Code:** `js/model.js` (mathematics, no DOM), `js/graph.js` (SVG), `js/app.js` (page controller), `index.html`, `styles.css`. Tests: `tests/model-tests.cjs`.

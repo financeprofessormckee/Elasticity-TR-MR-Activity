@@ -126,6 +126,8 @@ fieldset.tools legend { font-weight: 700; padding: 0; margin-bottom: 0.1rem; flo
 .readout { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; margin: 0 0 0.75rem; }
 .readout dt { font-weight: 600; }
 .readout dd { margin: 0; font-variant-numeric: tabular-nums; }
+select { max-width: 100%; }
+[hidden] { display: none !important; }
 
 .calc { border-left: 4px solid var(--muted); background: #f7f5f6; padding: 0.5rem 0.9rem; margin: 0.5rem 0; font-size: 0.95rem; }
 .calc p { margin: 0.3rem 0; }
@@ -159,6 +161,8 @@ footer p { margin: 0.4rem 0; }
   .panel { padding: 0.85rem; }
   details.howto { padding: 0.6rem 0.85rem; }
   input[type="number"], #points input[type="number"] { width: 5rem; }
+  .readout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .readout dd { margin-bottom: 0.4rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 @media print {
